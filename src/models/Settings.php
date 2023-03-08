@@ -65,6 +65,7 @@ class Settings extends Model
     public $disable_in_live_preview = false;
     public $excluded_entry_types = '';
     public $excluded_categories = '';
+    public $enabled_sites = [];
     public $expiry_days = 365;
     public $secure_only = false;
     public $revokable = false;
@@ -93,7 +94,8 @@ class Settings extends Model
             ['layout', 'in', 'range' => ['block', 'classic', 'edgeless', 'wire'], 'strict' => true, 'allowArray' => false],
             ['palette', 'in', 'range' => ['default', 'ice', 'cleanblue', 'greenblack', 'pink', 'purple', 'blue', 'red', 'white', 'graygreen', 'orange', 'whitegreen'], 'strict' => true, 'allowArray' => false],
             ['excluded_entry_types', 'default'],
-            ['excluded_categories', 'default']
+            ['excluded_categories', 'default'],
+            ['enabled_sites', 'default']
         ];
     }
 }

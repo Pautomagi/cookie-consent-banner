@@ -16,6 +16,7 @@ use adigital\cookieconsentbanner\models\Settings;
 
 use Craft;
 use craft\base\Plugin;
+use craft\helpers\Number;
 use craft\services\Plugins;
 use craft\events\PluginEvent;
 use craft\events\TemplateEvent;
@@ -81,7 +82,7 @@ class CookieConsentBanner extends Plugin
      * you do not need to load it in your init() method.
      *
      */
-    public function init() : void
+    public function init(): void
     {
         parent::init();
         self::$plugin = $this;
@@ -92,33 +93,33 @@ class CookieConsentBanner extends Plugin
 
         // Register our variables
         Event::on(
-          CraftVariable::class,
-          CraftVariable::EVENT_INIT,
-          static function (Event $event) {
-            /** @var CraftVariable $variable */
-            $variable = $event->sender;
-            $variable->set('cookieConsentBanner', CookieConsentBannerVariable::class);
-          }
+            CraftVariable::class,
+            CraftVariable::EVENT_INIT,
+            static function (Event $event) {
+                /** @var CraftVariable $variable */
+                $variable = $event->sender;
+                $variable->set('cookieConsentBanner', CookieConsentBannerVariable::class);
+            }
         );
 
-/**
- * Logging in Craft involves using one of the following methods:
- *
- * Craft::trace(): record a message to trace how a piece of code runs. This is mainly for development use.
- * Craft::info(): record a message that conveys some useful information.
- * Craft::warning(): record a warning message that indicates something unexpected has happened.
- * Craft::error(): record a fatal error that should be investigated as soon as possible.
- *
- * Unless `devMode` is on, only Craft::warning() & Craft::error() will log to `craft/storage/logs/web.log`
- *
- * It's recommended that you pass in the magic constant `__METHOD__` as the second parameter, which sets
- * the category to the method (prefixed with the fully qualified class name) where the constant appears.
- *
- * To enable the Yii debug toolbar, go to your user account in the AdminCP and check the
- * [] Show the debug toolbar on the front end & [] Show the debug toolbar on the Control Panel
- *
- * http://www.yiiframework.com/doc-2.0/guide-runtime-logging.html
- */
+        /**
+         * Logging in Craft involves using one of the following methods:
+         *
+         * Craft::trace(): record a message to trace how a piece of code runs. This is mainly for development use.
+         * Craft::info(): record a message that conveys some useful information.
+         * Craft::warning(): record a warning message that indicates something unexpected has happened.
+         * Craft::error(): record a fatal error that should be investigated as soon as possible.
+         *
+         * Unless `devMode` is on, only Craft::warning() & Craft::error() will log to `craft/storage/logs/web.log`
+         *
+         * It's recommended that you pass in the magic constant `__METHOD__` as the second parameter, which sets
+         * the category to the method (prefixed with the fully qualified class name) where the constant appears.
+         *
+         * To enable the Yii debug toolbar, go to your user account in the AdminCP and check the
+         * [] Show the debug toolbar on the front end & [] Show the debug toolbar on the Control Panel
+         *
+         * http://www.yiiframework.com/doc-2.0/guide-runtime-logging.html
+         */
         Craft::info(
             Craft::t(
                 'cookie-consent-banner',
@@ -127,46 +128,69 @@ class CookieConsentBanner extends Plugin
             ),
             __METHOD__
         );
-        
-        
+
+
         Event::on(
-          View::class,
-          View::EVENT_BEFORE_RENDER_TEMPLATE,
-          function (TemplateEvent $e) {
-            if($e->template === 'settings/plugins/_settings' && $e->variables['plugin'] === $this) {
-              // Add the tabs
-              $e->variables['tabs'] = [
-                ['label' => 'Display Options', 'url' => '#settings-tab-display-options'],
-                ['label' => 'Banner Text', 'url' => '#settings-tab-banner-text'],
-                ['label' => 'Include Options', 'url' => '#settings-tab-include-options'],
-                ['label' => 'Cookie Options', 'url' => '#settings-tab-cookie-options'],
-              ];
-            }
-        });
-        
-		$settings = $this->getSettings();
-		
+            View::class,
+            View::EVENT_BEFORE_RENDER_TEMPLATE,
+            function (TemplateEvent $e) {
+                if ($e->template === 'settings/plugins/_settings' && $e->variables['plugin'] === $this) {
+                    // Add the tabs
+                    $e->variables['tabs'] = [
+                        ['label' => 'Display Options', 'url' => '#settings-tab-display-options'],
+                        ['label' => 'Banner Text', 'url' => '#settings-tab-banner-text'],
+                        ['label' => 'Include Options', 'url' => '#settings-tab-include-options'],
+                        ['label' => 'Cookie Options', 'url' => '#settings-tab-cookie-options'],
+                    ];
+                }
+            });
+
+        $settings = $this->getSettings();
+
         if (!$settings->auto_inject || !$this->cookieConsentBannerService->validateRequestType() || $this->cookieConsentBannerService->validateCookieConsentSet()) {
-	      return;
-	    }
+            return;
+        }
 
         // Load JS/CSS before template is rendered
         Event::on(
-	      View::class,
-	      View::EVENT_BEFORE_RENDER_TEMPLATE,
-	      function (TemplateEvent $event) {
-		    $settings = $this->getSettings();
-		    if(isset($event->variables['entry']) && $event->variables['entry'] instanceof Entry) {
-		      $entryTypeUid = (new Query())
-                ->select(['uid'])
-                ->from([Table::ENTRYTYPES])
-                ->where('id = '.$event->variables['entry']->typeId)
-                ->one();
+            View::class,
+            View::EVENT_BEFORE_RENDER_TEMPLATE,
+            function (TemplateEvent $event) {
+                $settings = $this->getSettings();
+                $currentSiteId = null;
+                if (isset($event->variables['entry']) && $event->variables['entry']->siteId) {
+                    $currentSiteId = ($event->variables['entry']->siteId);
+                }
+                if(isset($event->variables['entry']) && $event->variables['entry'] instanceof Entry) {
+                    $entryTypeUid = (new Query())
+                        ->select(['uid'])
+                        ->from([Table::ENTRYTYPES])
+                        ->where('id = '.$event->variables['entry']->typeId)
+                        ->one();
+                }
+                if ($this->cookieConsentBannerService->validateResponseType()
+                    && (empty($event->variables['statusCode']) || $event->variables['statusCode'] < 400)
+                    && (!array_key_exists("category", $event->variables)
+                        && !array_key_exists("entry", $event->variables))
+                    || (array_key_exists("category", $event->variables)
+                        && (empty($settings->excluded_categories)
+                            || (!empty($settings->excluded_categories)
+                                && !in_array($event->variables['category']->uid, $settings->excluded_categories)))
+                    )
+                    || (array_key_exists("entry", $event->variables)
+                        && (empty($settings->excluded_entry_types)
+                            || (!empty($settings->excluded_entry_types)
+                                && (isset($entryTypeUid)
+                                    && !in_array($entryTypeUid['uid'], $settings->excluded_entry_types))
+                            )
+                        )
+                    )
+                    && (isset($settings->enabled_sites)
+                        && in_array($currentSiteId, $settings->enabled_sites))
+                ) {
+                    $this->cookieConsentBannerService->renderCookieConsentBanner();
+                }
             }
-		    if($this->cookieConsentBannerService->validateResponseType() && (empty($event->variables['statusCode']) || $event->variables['statusCode'] < 400) && (!array_key_exists("category", $event->variables) && !array_key_exists("entry", $event->variables)) || (array_key_exists("category", $event->variables) && (empty($settings->excluded_categories) || (!empty($settings->excluded_categories) && !in_array($event->variables['category']->uid, $settings->excluded_categories)))) || (array_key_exists("entry", $event->variables) && (empty($settings->excluded_entry_types) || (!empty($settings->excluded_entry_types) && (isset($entryTypeUid) && !in_array($entryTypeUid['uid'], $settings->excluded_entry_types)))))) {
-			  $this->cookieConsentBannerService->renderCookieConsentBanner();
-		    }
-	      }
         );
     }
 
@@ -178,7 +202,7 @@ class CookieConsentBanner extends Plugin
      *
      * @return \craft\base\Model|null
      */
-    protected function createSettingsModel() : Settings
+    protected function createSettingsModel(): Settings
     {
         return new Settings();
     }
@@ -191,10 +215,10 @@ class CookieConsentBanner extends Plugin
      */
     protected function settingsHtml(): string
     {
-	    // Get and pre-validate the settings
+        // Get and pre-validate the settings
         $settings = $this->getSettings();
         $settings->validate();
-        
+
         return Craft::$app->view->renderTemplate(
             'cookie-consent-banner/settings',
             [

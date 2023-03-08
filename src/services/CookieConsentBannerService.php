@@ -45,7 +45,7 @@ class CookieConsentBannerService extends Component
   public function renderCookieConsentBanner() : bool
   {
 	$settings = CookieConsentBanner::$plugin->getSettings();
-	
+
 	Craft::$app->getView()->registerAssetBundle(CookieConsentBannerAsset::class);
     $script = '
         if ((navigator.doNotTrack != "1" && '. ($settings->honour_do_not_track_header ? $settings->honour_do_not_track_header : 0) .') || !'. ($settings->honour_do_not_track_header ? $settings->honour_do_not_track_header : 0) .') {
@@ -166,30 +166,30 @@ class CookieConsentBannerService extends Component
 	    }
     ';
     Craft::$app->getView()->registerScript($script, 1, array(), "cookie-consent-banner");
-    
+
     return true;
   }
-  
+
   public function validateRequestType() : bool
   {
 	  if(Craft::$app->request->getIsCpRequest() || Craft::$app->request->getIsConsoleRequest() || (Craft::$app->request->hasMethod("getIsAjax") && Craft::$app->request->getIsAjax()) || (Craft::$app->request->hasMethod("getIsLivePreview") && (Craft::$app->request->getIsLivePreview() && CookieConsentBanner::$plugin->getSettings()->disable_in_live_preview))) {
     return false;
 	}
-	
+
 	return true;
   }
-  
+
   public function validateCookieConsentSet()  : bool
   {
 	 return isset($_COOKIE['cookieconsent_status']);
   }
-  
+
   public function validateResponseType() : bool
   {
 	  if(strpos(Craft::$app->response->format, 'template') !== false) {
 	    return true;
 	  }
-	  
+
 	  return false;
   }
 }
